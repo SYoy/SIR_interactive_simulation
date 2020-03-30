@@ -53,7 +53,7 @@ class Walker(Agent):
         # move to center
         if self.random.random() < 0.2:
             h_center = round((self.model.grid.height - 1)/2)
-            w_center = round((self.model.grid.w - 1)/ 2)
+            w_center = round((self.model.grid.width - 1)/ 2)
             last_pos = self.pos
 
             # make move

@@ -1,36 +1,38 @@
 from mesa.visualization.ModularVisualization import ModularServer
-from mesa.visualization.modules import CanvasGrid, ChartModule
+from mesa.visualization.modules import CanvasGrid, ChartModule, TextElement
 from mesa.visualization.UserParam import UserSettableParameter
 
-from SIR_wolf_sheep.SIR.agents import Wolf, Sheep, GrassPatch
-from SIR_wolf_sheep.SIR.model import WolfSheep
+from SIR_wolf_sheep.SIR.agents import Susceptible, Infectious, Removed
+from SIR_wolf_sheep.SIR.model import SIR
 
 
-def wolf_sheep_portrayal(agent):
+def agents_portrayal(agent):
     if agent is None:
         return
 
     portrayal = {}
 
-    if type(agent) is Sheep:
-        portrayal["Shape"] = "SIR/resources/sheep.png"
-        # https://icons8.com/web-app/433/sheep
-        portrayal["scale"] = 0.9
-        portrayal["Layer"] = 1
-
-    elif type(agent) is Wolf:
-        portrayal["Shape"] = "SIR/resources/wolf.png"
-        # https://icons8.com/web-app/36821/German-Shepherd
-        portrayal["scale"] = 0.9
-        portrayal["Layer"] = 2
-        portrayal["text"] = round(agent.energy, 1)
-        portrayal["text_color"] = "White"
-
-    elif type(agent) is GrassPatch:
-        if agent.fully_grown:
-            portrayal["Color"] = ["#00FF00", "#00CC00", "#009900"]
+    if type(agent) is Susceptible:
+        if agent.infected:
+            portrayal["Color"] = ["#dbd842", "#dbd842", "#dbd842"]
         else:
-            portrayal["Color"] = ["#84e184", "#adebad", "#d6f5d6"]
+            portrayal["Color"] = ["#42a0db", "#42a0db", "#42a0db"]
+        portrayal["Shape"] = "rect"
+        portrayal["Filled"] = "true"
+        portrayal["Layer"] = 0
+        portrayal["w"] = 1
+        portrayal["h"] = 1
+
+    elif type(agent) is Infectious:
+        portrayal["Color"] = ["#de3737", "#de3737", "#de3737"]
+        portrayal["Shape"] = "rect"
+        portrayal["Filled"] = "true"
+        portrayal["Layer"] = 0
+        portrayal["w"] = 1
+        portrayal["h"] = 1
+
+    elif type(agent) is Removed:
+        portrayal["Color"] = ["#b3b3b3", "#b3b3b3", "#b3b3b3"]
         portrayal["Shape"] = "rect"
         portrayal["Filled"] = "true"
         portrayal["Layer"] = 0
@@ -40,21 +42,26 @@ def wolf_sheep_portrayal(agent):
     return portrayal
 
 
-canvas_element = CanvasGrid(wolf_sheep_portrayal, 20, 20, 500, 500)
-chart_element = ChartModule([{"Label": "Wolves", "Color": "#AA0000"},
-                             {"Label": "Sheep", "Color": "#666666"}])
+canvas_element = CanvasGrid(agents_portrayal, SIR.height, SIR.width, 500, 500)
+chart_element = ChartModule([{"Label": "Susceptible", "Color": "#dbd842"},
+                             {"Label": "Infected", "Color": "#de3737"},
+                             {"Label": "Removed", "Color": "#b3b3b3"}])
 
-model_params = {"grass": UserSettableParameter('checkbox', 'Grass Enabled', True),
-                "grass_regrowth_time": UserSettableParameter('slider', 'Grass Regrowth Time', 20, 1, 50),
-                "initial_sheep": UserSettableParameter('slider', 'Initial Sheep Population', 100, 10, 300),
-                "sheep_reproduce": UserSettableParameter('slider', 'Sheep Reproduction Rate', 0.04, 0.01, 1.0,
-                                                         0.01),
-                "initial_wolves": UserSettableParameter('slider', 'Initial Wolf Population', 50, 10, 300),
-                "wolf_reproduce": UserSettableParameter('slider', 'Wolf Reproduction Rate', 0.05, 0.01, 1.0,
-                                                        0.01,
-                                                        description="The rate at which wolf agents reproduce."),
-                "wolf_gain_from_food": UserSettableParameter('slider', 'Wolf Gain From Food Rate', 20, 1, 50),
-                "sheep_gain_from_food": UserSettableParameter('slider', 'Sheep Gain From Food', 4, 1, 10)}
+# text_element = TextElement([{"R": "Susceptible", "Color": "#dbd842"},
+#                              {"Label": "Infected", "Color": "#de3737"},
+#                              {"Label": "Removed", "Color": "#b3b3b3"}])
 
-server = ModularServer(WolfSheep, [canvas_element, chart_element], "Wolf Sheep Predation", model_params)
+model_params = {"initial_susceptible": UserSettableParameter('slider', 'Initial Susceptible Population', 25, 25, 200),
+                "initial_infected": UserSettableParameter('slider', 'Initial Infected Population', 1, 1, 10),
+                "probability_recognized": UserSettableParameter('slider', 'Probability to be recognized as infected', 0.8, 0.1, 1.0, 0.05),
+                "infection_radius": UserSettableParameter('slider', 'Infection Radius (Cells in Grid)', 1, 1, 3),
+                "spread_probability": UserSettableParameter('slider', 'Probability to spread virus when in infection radius', 0.3, 0.1, 1.0, 0.05),
+                "movement": UserSettableParameter('choice', 'Movement Setting', value="random", choices=['random', 'random_center'])}
+
+server = ModularServer(SIR, [canvas_element, chart_element], "SIR", model_params)
 server.port = 8521
+
+# front-end: mini react slider, chart js für animation, pixie js
+# react nav elemente einbinden - dom element
+# package in react - deklerativ im js style pixie js bauen
+# deklerative syntax

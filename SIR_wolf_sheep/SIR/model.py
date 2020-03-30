@@ -13,135 +13,156 @@ from mesa import Model
 from mesa.space import MultiGrid
 from mesa.datacollection import DataCollector
 
-from SIR_wolf_sheep.SIR.agents import Sheep, Wolf, GrassPatch
+from SIR_wolf_sheep.SIR.agents import Susceptible, Infectious, Removed
 from SIR_wolf_sheep.SIR.schedule import RandomActivationByBreed
 
 
-class WolfSheep(Model):
+class SIR(Model):
     '''
-    Wolf-Sheep Predation Model
+        SIR-Simulation
     '''
 
     height = 40
     width = 40
 
-    # initial_susceptible = 100
-    # initial_infected = 50
+    initial_susceptible = 25
+    initial_infected = 1
 
-    initial_sheep = 100
-    initial_wolves = 50
+    probability_recognized = 0.8
+    infection_radius = 1.5
+    spread_probability = 0.3
+    duration_infection = 10
 
-    sheep_reproduce = 0.04
-    wolf_reproduce = 0.05
-
-    wolf_gain_from_food = 20
-
-    grass = False
-    grass_regrowth_time = 30
-    sheep_gain_from_food = 4
+    movement = "random"
 
     verbose = False  # Print-monitoring
 
-    description = 'A model for simulating wolf and sheep (predator-prey) ecosystem modelling.'
+    description = 'A model for simulating SIR'
 
-    def __init__(self, height=20, width=20,
-                 initial_sheep=100, initial_wolves=50,
-                 sheep_reproduce=0.04, wolf_reproduce=0.05,
-                 wolf_gain_from_food=20,
-                 grass=False, grass_regrowth_time=30, sheep_gain_from_food=4):
+    def __init__(self, height=height, width=width,
+                 initial_susceptible=100,
+                 initial_infected=50,
+                 probability_recognized=0.8,
+                 infection_radius=1.5,
+                 spread_probability=0.3,
+                 movement="random"):
         '''
-        Create a new Wolf-Sheep model with the given parameters.
+        Create a new SIR model with the given parameters.
 
         Args:
-            initial_sheep: Number of sheep to start with
-            initial_wolves: Number of wolves to start with
-            sheep_reproduce: Probability of each sheep reproducing each step
-            wolf_reproduce: Probability of each wolf reproducing each step
-            wolf_gain_from_food: Energy a wolf gains from eating a sheep
-            grass: Whether to have the sheep eat grass for energy
-            grass_regrowth_time: How long it takes for a grass patch to regrow
-                                 once it is eaten
-            sheep_gain_from_food: Energy sheep gain from grass, if enabled.
+            todo
         '''
         super().__init__()
         # Set parameters
         self.height = height
         self.width = width
-        self.initial_sheep = initial_sheep
-        self.initial_wolves = initial_wolves
-        self.sheep_reproduce = sheep_reproduce
-        self.wolf_reproduce = wolf_reproduce
-        self.wolf_gain_from_food = wolf_gain_from_food
-        self.grass = grass
-        self.grass_regrowth_time = grass_regrowth_time
-        self.sheep_gain_from_food = sheep_gain_from_food
+
+        self.initial_susceptible = initial_susceptible
+        self.initial_infected = initial_infected
+
+        self.probability_recognized = probability_recognized
+        self.infection_radius = infection_radius
+        self.spread_probability = spread_probability
+        self.movement = movement
 
         self.schedule = RandomActivationByBreed(self)
         self.grid = MultiGrid(self.height, self.width, torus=True)
+
         self.datacollector = DataCollector(
-            {"Wolves": lambda m: m.schedule.get_breed_count(Wolf),
-             "Sheep": lambda m: m.schedule.get_breed_count(Sheep)})
+            {"Susceptible": lambda m: m.schedule.get_breed_count(Susceptible),
+             "Infected": lambda m: m.schedule.get_breed_count(Infectious),
+             "Removed": lambda m: m.schedule.get_breed_count(Removed)})
 
         # Create sheep:
-        for i in range(self.initial_sheep):
+        for i in range(self.initial_susceptible):
             x = self.random.randrange(self.width)
             y = self.random.randrange(self.height)
-            energy = self.random.randrange(2 * self.sheep_gain_from_food)
-            sheep = Sheep(self.next_id(), (x, y), self, True, energy)
-            self.grid.place_agent(sheep, (x, y))
-            self.schedule.add(sheep)
+            susc = Susceptible(self.next_id(), (x, y), self, True, None)
+            self.grid.place_agent(susc, (x, y))
+            self.schedule.add(susc)
 
         # Create wolves
-        for i in range(self.initial_wolves):
+        for i in range(self.initial_infected):
             x = self.random.randrange(self.width)
             y = self.random.randrange(self.height)
-            energy = self.random.randrange(2 * self.wolf_gain_from_food)
-            wolf = Wolf(self.next_id(), (x, y), self, True, energy)
-            self.grid.place_agent(wolf, (x, y))
-            self.schedule.add(wolf)
-
-        # Create grass patches
-        if self.grass:
-            for agent, x, y in self.grid.coord_iter():
-
-                fully_grown = self.random.choice([True, False])
-
-                if fully_grown:
-                    countdown = self.grass_regrowth_time
-                else:
-                    countdown = self.random.randrange(self.grass_regrowth_time)
-
-                patch = GrassPatch(self.next_id(), (x, y), self,
-                                   fully_grown, countdown)
-                self.grid.place_agent(patch, (x, y))
-                self.schedule.add(patch)
+            inf = Infectious(self.next_id(), (x, y), self, True, None)
+            self.grid.place_agent(inf, (x, y))
+            self.schedule.add(inf)
 
         self.running = True
         self.datacollector.collect(self)
 
+
+    def to_infected(self, agent):
+        pos = agent.pos
+        now_in_center = agent.now_in_center
+        last_pos = agent.last_pos
+        infected= agent.infected
+        steps_since_infection = agent.steps_since_infection
+
+        # remove agent - todo
+        self.delete_agents.append(agent)
+
+        # create new infected agent with same attributes
+        inf = Infectious(agent.unique_id, pos, self, True, None,
+                         now_in_center=now_in_center,
+                         last_pos=last_pos,
+                         infected=infected,
+                         steps_since_infection=steps_since_infection
+                         )
+
+        self.grid.place_agent(inf, pos)
+        self.schedule.add(inf)
+
+    def to_removed(self, agent):
+        pos = agent.pos
+        now_in_center = agent.now_in_center
+        last_pos = agent.last_pos
+
+        # remove agent
+        self.delete_agents.append(agent)
+
+        # create new infected agent with same attributes
+        rem = Removed(agent.unique_id, pos, self, True, None,
+                         now_in_center=now_in_center,
+                         last_pos=last_pos)
+        self.grid.place_agent(rem, pos)
+        self.schedule.add(rem)
+
+
     def step(self):
+        # Models step function
+        self.delete_agents = []
         self.schedule.step()
+        if len(self.delete_agents) > 0:
+            for agent in self.delete_agents:
+                self.schedule.remove(agent)
+                self.grid.remove_agent(agent)
+
         # collect data
         self.datacollector.collect(self)
         if self.verbose:
             print([self.schedule.time,
-                   self.schedule.get_breed_count(Wolf),
-                   self.schedule.get_breed_count(Sheep)])
+                   self.schedule.get_breed_count(Susceptible),
+                   self.schedule.get_breed_count(Infectious),
+                   self.schedule.get_breed_count(Removed)])
 
     def run_model(self, step_count=200):
 
         if self.verbose:
-            print('Initial number wolves: ',
-                  self.schedule.get_breed_count(Wolf))
-            print('Initial number sheep: ',
-                  self.schedule.get_breed_count(Sheep))
+            print('Initial number susceptible: ',
+                  self.schedule.get_breed_count(Susceptible))
+            print('Initial number infected: ',
+                  self.schedule.get_breed_count(Infectious))
 
         for i in range(step_count):
             self.step()
 
         if self.verbose:
             print('')
-            print('Final number wolves: ',
-                  self.schedule.get_breed_count(Wolf))
-            print('Final number sheep: ',
-                  self.schedule.get_breed_count(Sheep))
+            print('Final number removed: ',
+                  self.schedule.get_breed_count(Removed))
+            print('Final number susceptible: ',
+                  self.schedule.get_breed_count(Susceptible))
+            print('Final number infected: ',
+                  self.schedule.get_breed_count(Infectious))

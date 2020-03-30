@@ -2,7 +2,6 @@ from collections import defaultdict
 
 from mesa.time import RandomActivation
 
-
 class RandomActivationByBreed(RandomActivation):
     '''
     A scheduler which activates each type of agent once per step, in random
